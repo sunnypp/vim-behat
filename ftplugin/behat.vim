@@ -45,32 +45,29 @@ function! s:jump(command)
   endtry
   if len(steps) == 0
     return 'echoerr "No matching step found"'
-  elseif len(steps) > 1
-    return 'echoerr "Multiple matching step found"'
   else
+    " just show the first one even when multiple found
     return a:command.' '.steps[0][1]
   endif
 endfunction
 
 function! s:steps(lnum)
   let c = indent(a:lnum) + 1
-  while synIDattr(synID(a:lnum,c,1),'name') !~# '^$\|Region$'
-    let c = c + 1
-  endwhile
+  " Keep the given, when, then ... sorry I may be breaking the i18n
   let step = matchstr(getline(a:lnum)[c-1 : -1],'^\s*\zs.\{-\}\ze\s*$')
   return filter(s:definfo(),'s:stepmatch(v:val[2],step)')
 endfunction
 
 function! s:stepmatch(receiver,target)
-  if a:receiver =~ '^/.*/$'
-    let pattern = a:receiver[1:-2]
-  else
-    return 0
-  endif
   try
-    let pattern = substitute(pattern, '\\\@<!(?P<[^>]\+>\([^)]\+)\?[*+]\?\))','\1','g')
-    let vimpattern = substitute(substitute(pattern,'\\\@<!(?:','%(','g'),'\\\@<!\*?','{-}','g')
-    if a:target =~# '\v'.vimpattern
+    " Change '/^Then /^...$/$/' into '^Then ...$'
+    let pattern = substitute( a:receiver[1:-1],  ' /^'                         , ' '             ,  'g')
+    let pattern = substitute( pattern         ,  '/$'                          , ''              ,  'g')
+    " make :var to word or string
+    let pattern = substitute( pattern         ,  '\v:\w+'                      , '(\\w+|"[^"]+")',  'g')
+    " make it work for And
+    let pattern = substitute( pattern         ,  '\v\^\zs(Given|When|Then)\ze ', '(\1|And)'      ,  'g')
+    if a:target =~# '\v'.pattern
       return 1
     endif
   catch
@@ -88,15 +85,21 @@ function! s:definfo()
       let definfos = filter(split(output, "\n"), 'v:val !~ "\\%(^$\\|\\s\\+-\\)"')
       let index = 0
       while index < len(definfos)
-        let pattern = matchstr(definfos[index],'^\s\?\w\+\s\zs.*$')
+        " Get the contents after the | character
+        let pattern = matchstr(definfos[index],'\v\|\s*\zs.*$')
         if pattern !~ '^\/\^'
           let pattern = '/^' . pattern . '$/'
         endif
-        let source = matchstr(definfos[index + 1],'#\s\zs.*$')
+        " Keep moving to next line until we find '| at' (Skip step descriptions)
+        let index = index + 1
+        while definfos[index] !~# '\v\|\s+at'
+          let index = index + 1
+        endwhile
+        let source = matchstr(definfos[index],'\v\|\s\zs.*$')
         let class = matchstr(source, '\w\+\ze::')
         let method = matchstr(source, '::\zs\w\+\ze()')
         let steps += [[class,method,pattern]]
-        let index = index + 2
+        let index = index + 1
       endwhile
       return steps
     endif
@@ -116,8 +119,10 @@ function! s:deflist()
     if v:shell_error == 0
       for def in split(output, "\n")
         let def = substitute(def,'^\s\+','','')
-        let type = matchstr(def,'\w\+')
-        let pattern = matchstr(def,'\w\+\s\zs.*$')
+        let type = matchstr(def,'\v\zs(Given|When|Then)\ze ')
+        let pattern = matchstr(def,'\v\|\s\zs.*$')
+        let pattern = substitute(pattern, '\v(Given|When|Then) ', '', 'g')
+        " TODO: Handle (cases|like|this) and ensure /^$/ are taken away
         if pattern !~ '^\/\^'
           let pattern = '/^' . pattern . '$/'
         endif
@@ -148,7 +153,7 @@ endfunction
 function! BehatComplete(findstart,base) abort
   let indent = indent('.')
   let group = synIDattr(synID(line('.'),indent+1,1),'name')
-  let type = matchstr(group,'\Ccucumber\zs\%(Given\|When\|Then\)')
+  let type = matchstr(group,'\zs\%(Given\|When\|Then\)')
   let e = matchend(getline('.'),'^\s*\S\+\s')
   if type == '' || col('.') < col('$') || e < 0
     return -1
@@ -173,20 +178,20 @@ function! BehatComplete(findstart,base) abort
     if step[0] ==# type
       if step[1] =~ '^\/\^.*\$\/$'
         let pattern = step[1][2:-3]
-        let pattern = substitute(pattern,'\C^(?:|\?\(\w\{-1,}\) )?\?','\1 ','')
-        let pattern = s:bsub(pattern,'\\d','1')
-        let pattern = s:bsub(pattern,'\[\^\\\="\]','_')
-        let pattern = s:bsub(pattern,'[[:alnum:]. _-][?*]?\=','')
-        let pattern = s:bsub(pattern,'\[\([^^]\).\{-\}\]','\1')
-        let pattern = s:bsub(pattern,'\(\w\+\)\%(|\w\+\)\+','\1')
-        let pattern = s:bsub(pattern,'(?P<\([^>]\+\)>\%(([^)]\+)\)\?.\{-})','{\1}')
-        let pattern = s:bsub(pattern,'+?\=','')
-        let pattern = s:bsub(pattern,'?:','')
-        let pattern = s:bsub(pattern,'(\([[:alnum:]. _-]\{-\}\))','\1')
-        let pattern = s:bsub(pattern,'\\\([[:punct:]]\)','\1')
-        if pattern !~ '[\\*?]'
+        " let pattern = substitute(pattern,'\C^(?:|\?\(\w\{-1,}\) )?\?','\1 ','')
+        " let pattern = s:bsub(pattern,'\\d','1')
+        " let pattern = s:bsub(pattern,'\[\^\\\="\]','_')
+        " let pattern = s:bsub(pattern,'[[:alnum:]. _-][?*]?\=','')
+        " let pattern = s:bsub(pattern,'\[\([^^]\).\{-\}\]','\1')
+        " let pattern = s:bsub(pattern,'\(\w\+\)\%(|\w\+\)\+','\1')
+        " let pattern = s:bsub(pattern,'(?P<\([^>]\+\)>\%(([^)]\+)\)\?.\{-})','{\1}')
+        " let pattern = s:bsub(pattern,'+?\=','')
+        " let pattern = s:bsub(pattern,'?:','')
+        " let pattern = s:bsub(pattern,'(\([[:alnum:]. _-]\{-\}\))','\1')
+        " let pattern = s:bsub(pattern,'\\\([[:punct:]]\)','\1')
+        " if pattern !~ '[\\*?]'
           let steps += [pattern]
-        endif
+        " endif
       endif
     endif
   endfor
@@ -194,3 +199,4 @@ function! BehatComplete(findstart,base) abort
 endfunction
 
 " vim:set sts=2 sw=2:
+

@@ -13,19 +13,22 @@ ftplugin are specific to Behat.
 * **jump to step definition** (*behat version from 2.2 and ctags are required*) with
 tag commands `<C-]>`, `<C-W>]`, `<C-W>}`
 * **compiler plugin** that allows you to run behat with `:make` and see errors in
-the quickfix window (enable with `:compiler behat`)
+the quickfix window (enable with `:compiler behat`) **(Not tested after forking)**
 * works well with [neocomplcache](https://github.com/Shougo/neocomplcache)
-(see below the settings needed)
+(see below the settings needed) **(Not tested after forking)**
 * Copy to the **clipboard** the behat command to run features in the current buffer
-(`:BehatCmdToClipBoard`). You need to enable behat compiler to have this command.
+(`:BehatCmdToClipBoard`). You need to enable behat compiler to have this command. **(Not tested after forking)**
 
 ## Installation
 
-You can download the archive, and uncompress it in your `~/.vim` folder.
-I recommand using [pathogen.vim](https://github.com/tpope/vim-pathogen), though:
+### [Plug](https://github.com/junegunn/vim-plug)
+
+    Plug 'sunnypp/vim-behat'
+
+### [Pathogen](https://github.com/tpope/vim-pathogen)
 
     cd ~/.vim/bundle
-    git clone git://github.com/veloce/vim-behat.git
+    git clone git://github.com/sunnypp/vim-behat.git
 
 Behat feature files share the same `.feature` extension with cucumber, so in
 order to choose the behat filetype plugin, you need to set the following global

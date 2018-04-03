@@ -26,7 +26,7 @@ function! s:findBehatCmd()
       if exists('b:behat_cmd_args')
         let cmd = cmd . ' ' . b:behat_cmd_args
       endif
-      return cmd
+      return cmd . ' ' . expand('%:p')
     endif
   endfor
   return 'echoerr "behat: behat command not found or returned an error"'
